@@ -8,7 +8,7 @@ temperatureInput = sc.textFile("./normal_hly_sample_temperature.csv")
 def mapTemperatureLine(line: str):
     tokens = line.split(",")
     if tokens[0] == "STATION":
-        return ("NULL", (0, 0, 0))
+        return ("NULL", (0, 0, 1))
     
     date = tokens[5].split(" ")[0]
     normalTemp = float(tokens[6])
@@ -26,13 +26,20 @@ def reduceTemperatureAverage(tempVal1, tempVal2):
 
     return (resultNormalTemp, resultDewTemp, resultCount)
 
-#def collectTemperatureAverage(tempVal1, tempVal2):
-#    avgNormalTemp1, avgDewTemp1, count1 = tempVal1.split(", ")
-#    avgNormalTemp2, avgDewTemp2, count2 = tempVal2.split(", ")
+def combineTemperatureAverage(tempVal):
+    normalTemp, dewTemp, count = tempVal
+
+    return (normalTemp / count, dewTemp / count)
 
 pairs = temperatureInput.map(mapTemperatureLine)
 counts = pairs.reduceByKey(reduceTemperatureAverage)
-#counts = pairs.aggregateByKey("0, 0, 0", reduceTemperatureAverage, collectTemperatureAverage)
+averages = counts.mapValues(combineTemperatureAverage)
 
-counts.sortByKey()
-print(counts.collect())
+averages.sortByKey()
+
+with open("./spark rdd/output.txt", "w") as output:
+    for data in averages.collect():
+        date, (avgNormalTemp, avgDewTemp) = data
+        if date == "NULL":
+            continue
+        output.write(date + "\t" + str(avgNormalTemp) + ", " + str(avgDewTemp) + "\n")
